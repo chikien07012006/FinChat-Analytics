@@ -9,7 +9,7 @@
 **Approach**: Offline Training Pipeline + Online Inference 
 
 **Total Estimated Duration**: 6–8 weeks 
-
+  ```
 ---
 
 ## Phase 0: Project Initialization (1 day)
