@@ -15,7 +15,7 @@
 ## Phase 0: Project Initialization (1 day)
 
 - [x] Create a new private GitHub repository and invite the team
-- [ ] Initialize the project folder structure:
+- [x] Initialize the project folder structure:
   ```bash
   finchat-analytics/
   ├── pipeline/          # Offline training pipeline
@@ -27,9 +27,9 @@
   ├── docker-compose.yml
   └── requirements.txt
   ```
-- [ ] Set up local development environment (Python 3.12)
+- [x] Set up local development environment (Python 3.12)
 - [x] Create `.env.example` and `.gitignore` files
-- [ ] Configure branch protection rules on `main` branch (require PR reviews)
+- [x] Configure branch protection rules on `main` branch (require PR reviews)
 
 ---
 
