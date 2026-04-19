@@ -46,6 +46,23 @@ customers['churn'] = 0
 high_risk = (customers['tenure_months'] < 6) | (customers['age'] < 25)
 customers.loc[high_risk, 'churn'] = np.random.choice([0,1], high_risk.sum(), p=[0.3, 0.7])
 
+# Thêm một ít random noise (5-10%) để tránh model học thuộc lòng rule
+# noise_idx = customers.sample(frac=0.08, random_state=42).index
+# customers.loc[noise_idx, 'churn'] = 1 - customers.loc[noise_idx, 'churn']
+
+# Cải tiến: Rule-based churn definition (càng nhiều rule càng tốt)
+# conditions = (
+#     (customers['recency_days'] > 90) |                                   # Lâu không giao dịch
+#     (customers['freq_90d'] == 0) |                                       # Không có giao dịch trong 90 ngày gần nhất
+#     ((customers['frequency'] > 5) & (customers['freq_ratio'] < 0.4)) |   # Tần suất giảm mạnh
+#     (customers['monetary_90d'] / (customers['monetary_value'] + 1) < 0.3) |  # Doanh thu gần đây giảm mạnh
+#     (customers['tenure_months'] < 3) |                                   # Khách mới rất dễ churn
+#     (customers['avg_days_between'] > 60)                                 # Khoảng cách giao dịch ngày càng xa
+# )
+
+# # Gán churn = 1 cho những khách thỏa mãn >= 2 conditions
+# customers.loc[conditions, 'churn'] = 1
+
 print(f"Generated {len(customers):,} customers and {len(transactions):,} transactions")
 customers.to_csv('data/customers.csv', index=False)
 transactions.to_csv('data/raw_transactions.csv', index=False)
