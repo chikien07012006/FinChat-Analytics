@@ -35,11 +35,11 @@
 
 ## Phase 1: Data Preparation (2–3 days)
 
-- [ ] Generate or import suitable sample banking data using `generate_bank_data.py`
-- [ ] Design MySQL database schema (`raw_transactions`, `customer_data`, `customer_features`)
-- [ ] Migrate data from SQLite to MySQL
-- [ ] Build data ingestion pipeline (CSV → raw tables)
-- [ ] Create data quality checks (missing values, outliers, duplicates)
+- [x] Generate or import suitable sample banking data using `generate_bank_data.py`
+- [x] Design MySQL database schema (`raw_transactions`, `customer_data`, `customer_features`)
+- [x] Migrate data from SQLite to MySQL
+- [x] Build data ingestion pipeline (CSV → raw tables)
+- [x] Create data quality checks (missing values, outliers, duplicates)
 
 ---
 
