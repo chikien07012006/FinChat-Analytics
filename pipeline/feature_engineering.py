@@ -123,7 +123,7 @@ class CustomerFeatureEngineer:
         # One-hot hoặc frequency encoding cho promotion_type (nếu nhiều loại) | làm sau ... 
         # Hoặc giữ nguyên categorical để sau encode trong training pipeline
     
-    return promo_agg
+        return promo_agg
 
     def run_feature_engineering(self) -> pd.DataFrame:
         """Main pipeline - trả về full intermediate features"""
