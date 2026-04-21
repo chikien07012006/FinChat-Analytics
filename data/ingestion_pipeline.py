@@ -10,9 +10,14 @@ load_dotenv()
 logging.basicConfig(level=os.getenv("LOG_LEVEL", "INFO"))
 logger = logging.getLogger(__name__)
 
+from urllib.parse import quote_plus
+
 def get_mysql_engine():
+    # URL encode the password to safely handle special characters like '@'
+    password = quote_plus(os.getenv('DB_PASSWORD', ''))
+    
     db_url = (
-        f"mysql+pymysql://{os.getenv('DB_USER')}:{os.getenv('DB_PASSWORD')}"
+        f"mysql+pymysql://{os.getenv('DB_USER')}:{password}"
         f"@{os.getenv('DB_HOST')}:{os.getenv('DB_PORT')}/{os.getenv('DB_NAME')}"
     )
     
@@ -61,14 +66,14 @@ if __name__ == "__main__":
     engine = get_mysql_engine()
     
     ingest_csv_to_mysql(
-        csv_path="data/customers.csv",
+        csv_path="customers.csv",
         table_name="customer_data",
         engine=engine,
         if_exists="append"     
     )
     
     ingest_csv_to_mysql(
-        csv_path="data/raw_transactions.csv",
+        csv_path="raw_transactions.csv",
         table_name="raw_transactions",
         engine=engine,
         if_exists="append"

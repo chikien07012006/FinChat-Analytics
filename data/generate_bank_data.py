@@ -64,5 +64,5 @@ customers.loc[high_risk, 'churn'] = np.random.choice([0,1], high_risk.sum(), p=[
 # customers.loc[conditions, 'churn'] = 1
 
 print(f"Generated {len(customers):,} customers and {len(transactions):,} transactions")
-customers.to_csv('data/customers.csv', index=False)
-transactions.to_csv('data/raw_transactions.csv', index=False)
+customers.to_csv('customers.csv', index=False)
+transactions.to_csv('raw_transactions.csv', index=False)
