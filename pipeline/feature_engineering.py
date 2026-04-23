@@ -20,7 +20,7 @@ class CustomerFeatureEngineer:
 
         engine = get_mysql_engine()
 
-        df = pd.read_sql_query("""
+        df = pd.read_sql_query(f"""
         SELECT customer_id, tenant_id, transaction_date, amount 
         FROM {table} 
         WHERE amount > 0
@@ -117,7 +117,7 @@ class CustomerFeatureEngineer:
         ).reset_index()
         
         # Tính recency của promotion
-        promo_agg['days_since_last_promotion'] = (self.snapshot_date - promo_agg['last_promotion_date'].dt.date).dt.days
+        promo_agg['days_since_last_promotion'] = (self.snapshot_date - promo_agg['last_promotion_date']).dt.days
         promo_agg['days_since_last_promotion'] = promo_agg['days_since_last_promotion'].fillna(999)  # hoặc giá trị lớn nếu chưa từng nhận
         
         # One-hot hoặc frequency encoding cho promotion_type (nếu nhiều loại) | làm sau ... 
@@ -128,7 +128,13 @@ class CustomerFeatureEngineer:
     def run_feature_engineering(self) -> pd.DataFrame:
         """Main pipeline - trả về full intermediate features"""
         df = self.load_transactions(table='raw_transactions')
-        promo_df = self.load_transactions(table='customer_data') #Uplift modeling
+        
+        engine = get_mysql_engine()
+        promo_df = pd.read_sql_query("""
+            SELECT customer_id, received_promotion, promotion_type, signup_date as transaction_date
+            FROM customer_data
+        """, engine)
+        promo_df['transaction_date'] = pd.to_datetime(promo_df['transaction_date'])
 
         rfm_df = self.compute_rfm_and_lifetime(df)
         rolling_df = self.compute_rolling_features(df)
