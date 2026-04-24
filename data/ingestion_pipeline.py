@@ -1,11 +1,13 @@
 import os
+from pathlib import Path
 import pandas as pd
 from sqlalchemy import create_engine, text
 from sqlalchemy.pool import QueuePool
 from dotenv import load_dotenv
 import logging
 
-load_dotenv()
+# Explicitly load .env from the project root, regardless of where this module is imported from
+load_dotenv(dotenv_path=Path(__file__).resolve().parent.parent / ".env")
 
 logging.basicConfig(level=os.getenv("LOG_LEVEL", "INFO"))
 logger = logging.getLogger(__name__)

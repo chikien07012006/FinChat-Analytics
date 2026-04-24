@@ -1,5 +1,45 @@
+# Secrets & credentials
 .env
-data/*.csv
-*.pyc
 
+# Generated data files
+data/*.csv
+data/*.parquet
+data/features/
+
+# Python cache
+*.pyc
+*.pyo
+__pycache__/
+*.pyd
+
+# Virtual environment
+.venv/
+
+# Jupyter
+.ipynb_checkpoints/
+*.ipynb_checkpoints
+
+# Logs
+*.log
+logs/
+
+# ML artifacts & models
+*.pkl
+*.joblib
+*.h5
+mlruns/
+mlflow/
+
+# OS files
+.DS_Store
+Thumbs.db
+
+# IDE
+.idea/
+.vscode/
+
+# Codex internal
+.codex/
+
+# Team-specific folders
 hieunv/
