@@ -1,13 +1,10 @@
 import pandas as pd
 import numpy as np
 from datetime import datetime
-import logging
 from pathlib import Path
 from typing import Optional
-from sqlalchemy import create_engine
+from sqlalchemy import create_engine, text
 from data.ingestion_pipeline import get_mysql_engine
-
-logger = logging.getLogger(__name__)
 
 class CustomerFeatureEngineer:
     def __init__(self, snapshot_date: Optional[datetime] = None):
@@ -17,20 +14,17 @@ class CustomerFeatureEngineer:
 
     def load_transactions(self, table) -> pd.DataFrame:
         """Load raw transaction data"""
-
         engine = get_mysql_engine()
-
-        df = pd.read_sql_query(f"""
-        SELECT customer_id, tenant_id, transaction_date, amount 
-        FROM {table} 
-        WHERE amount > 0
-        """, engine)
+        with engine.connect() as conn:
+            df = pd.read_sql_query(text(f"""
+            SELECT customer_id, tenant_id, transaction_date, amount 
+            FROM {table} 
+            WHERE amount > 0
+            """), conn)
         
         df['transaction_date'] = pd.to_datetime(df['transaction_date'])
         df = df.sort_values(['customer_id', 'transaction_date'])
 
-        logger.info(f"Loaded {len(df):,} transactions for {df['customer_id'].nunique():,} customers")
-    
         return df
 
     def compute_rfm_and_lifetime(self, df: pd.DataFrame) -> pd.DataFrame:
@@ -111,7 +105,11 @@ class CustomerFeatureEngineer:
             num_promotions=('received_promotion', 'sum'),
             churn=('churn', 'max'),
             promotion_types=('promotion_type', lambda x: list(x.unique()) if len(x.unique()) > 0 else None),
-            last_promotion_date=('transaction_date', lambda x: x[df.loc[x.index, 'received_promotion'] == 1].max() if any(df.loc[x.index, 'received_promotion'] == 1) else pd.NaT)
+            last_promotion_date=('transaction_date', lambda x: x[df.loc[x.index, 'received_promotion'] == 1].max() if any(df.loc[x.index, 'received_promotion'] == 1) else pd.NaT),
+            age=('age', 'first'),
+            gender=('gender', 'first'),
+            city=('city', 'first'),
+            segment_initial=('segment_initial', 'first')
         ).reset_index()
         
         # Tính recency của promotion
@@ -137,12 +135,13 @@ class CustomerFeatureEngineer:
     def run_feature_engineering(self) -> pd.DataFrame:
         """Main feature engineering pipeline"""
         df = self.load_transactions(table='raw_transactions')
-        
         engine = get_mysql_engine()
-        promo_df = pd.read_sql_query("""
-            SELECT customer_id, received_promotion, promotion_type, signup_date as transaction_date, churn
-            FROM customer_data
-        """, engine)
+        with engine.connect() as conn:
+            promo_df = pd.read_sql_query(text("""
+                SELECT customer_id, received_promotion, promotion_type, signup_date as transaction_date, churn,
+                       age, gender, city, segment_initial
+                FROM customer_data
+            """), conn)
         promo_df['transaction_date'] = pd.to_datetime(promo_df['transaction_date'])
 
         rfm_df = self.compute_rfm_and_lifetime(df)
@@ -180,7 +179,6 @@ class CustomerFeatureEngineer:
         features['feature_version'] = datetime.now().strftime('%Y%m%d_%H%M')
 
         self.raw_features = features
-        logger.info(f"Feature engineering completed. Shape: {features.shape}")
         
         return features
 
@@ -212,9 +210,9 @@ class CustomerFeatureEngineer:
         full_path = path.format(date=date_str)
         Path(full_path).parent.mkdir(parents=True, exist_ok=True)
         self.raw_features.to_parquet(full_path, index=False)
-        logger.info(f"Saved raw features to {full_path}")
+        
 
 def run_feature_engineering() -> pd.DataFrame:
     """Standalone wrapper for CustomerFeatureEngineer.run_feature_engineering"""
     engineer = CustomerFeatureEngineer()
-    return engineer.run_feature_engineering()
+    return engineer.run_feature_engineering()

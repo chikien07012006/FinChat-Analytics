@@ -46,7 +46,7 @@
 ## Phase 2: Feature Engineering & Offline Training Pipeline (7–8 days)
 
 - [x] Implement `pipeline/feature_engineering.py` (RFM, spending_last_30d/90d, frequency_last_*, tenure features, etc.)
-- [ ] Build `pipeline/train_all_models.py`:
+- [x] Build `pipeline/train_all_models.py`:
   - Run feature engineering and save to `customer_features` table
   - Train all models: CLV (BG/NBD + Gamma-Gamma), Survival (CoxPH), Churn Classification, Uplift Modeling, Causal Discovery
   - Wrap models using `mlflow.pyfunc` where necessary

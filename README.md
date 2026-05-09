@@ -1,72 +1,117 @@
-# FinChat-Analytics
+# FinChat Analytics — AI-Powered Customer Retention Platform
 
-Welcome to the FinChat-Analytics project! This repository contains the data generation, ingestion, and machine learning pipelines for customer behavioral analysis, churn prediction (Survival Analysis), and more.
+[![Python Version](https://img.shields.io/badge/python-3.12-blue.svg)](https://www.python.org/)
+[![FastAPI](https://img.shields.io/badge/FastAPI-0.115+-009688.svg)](https://fastapi.tiangolo.com/)
+[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
+[![MLflow](https://img.shields.io/badge/MLflow-2.16+-0194E2.svg)](https://mlflow.org/)
 
-## Workspace Setup Guide
+**FinChat Analytics** is a high-performance B2B analytics platform designed for banks, fintech startups, and SMEs. It leverages advanced causal discovery and predictive modeling to provide actionable insights into customer behavior, retention, and lifetime value through a natural language interface.
 
-To ensure everyone on the team is working with the same reproducible data architecture, please follow these steps to set up your local environment.
+---
 
-### Step 1: Install Dependencies
-Ensure you have Python installed, then install all project boundaries inside your virtual environment:
+## 🚀 Key Capabilities
 
+-   **🧠 Causal Discovery**: Identify direct drivers of churn using `DirectLiNGAM` structural causal modeling.
+-   **⏳ Survival Analysis**: Predict precisely *when* a customer will churn using Cox Proportional Hazards models.
+-   **💎 CLV Estimation**: Calculate Customer Lifetime Value using BG/NBD and Gamma-Gamma probabilistic models.
+-   **📈 Uplift Modeling**: Quantify the incremental impact of marketing promotions (T-Learner approach).
+-   **🤖 AI Agent**: A LangChain-powered assistant that translates natural language queries into complex data insights.
+
+---
+
+## 🏗️ System Architecture
+
+```mermaid
+graph TD
+    subgraph "Data Layer"
+        GD[Data Generator] --> RAW[(MySQL Raw Tables)]
+        RAW --> IP[Ingestion Pipeline]
+    end
+
+    subgraph "ML Pipeline (Offline)"
+        FE[Feature Engineering] --> TRAIN[Model Training]
+        TRAIN --> REG[MLflow Model Registry]
+    end
+
+    subgraph "Service Layer (Online)"
+        API[FastAPI Backend] --> AGENT[LangChain Agent]
+        AGENT --> TOOLS[Analysis Tools]
+        TOOLS --> REG
+        TOOLS --> SQL[(Feature Store)]
+    end
+
+    subgraph "Presentation"
+        UI[Streamlit Dashboard] --> API
+    end
+```
+
+---
+
+## 🛠️ Tech Stack
+
+| Category | Technologies |
+| :--- | :--- |
+| **Frameworks** | FastAPI, Streamlit, LangChain |
+| **Machine Learning** | Scikit-learn, Causal-learn, Lifetimes, Lifelines |
+| **Data Engineering** | Pandas, SQLAlchemy, MySQL |
+| **MLOps** | MLflow, Docker, GitHub Actions |
+| **Cloud** | AWS (RDS, ECS, S3, ECR) |
+
+---
+
+## ⚙️ Quick Start
+
+### 1. Environment Setup
+Clone the repository and install dependencies:
 ```bash
+git clone https://github.com/chikien07012006/FinChat-Analytics.git
+cd FinChat-Analytics
 pip install -r requirements.txt
 ```
 
-### Step 2: Configure Environment Variables
-We use environment variables to manage our database credentials safely.
-
-1. In the root directory of the project, create a new file named `.env`.
-2. Add your MySQL database configuration to the `.env` file (ask the team leader if you need the remote host details, or use your local MySQL server):
-
+### 2. Configuration
+Create a `.env` file in the root directory:
 ```env
-# ==================== DATABASE CONFIG ====================
 DB_HOST=localhost
 DB_PORT=3306
 DB_NAME=finchat
 DB_USER=root
-# Note: If your password contains special characters like '@', they are handled automatically by the codebase.
-DB_PASSWORD=your_mysql_password
-
-# ==================== APP CONFIG ====================
-TENANT_ID=BANK001
-ENVIRONMENT=development
-LOG_LEVEL=INFO
+DB_PASSWORD=your_password
+OPENAI_API_KEY=your_key
 ```
 
-### Step 3: Create Database Tables (MySQL Workbench)
-Before we can push our mock data to the database, the tables must physically exist.
-
-1. Open **MySQL Workbench** (or DBeaver/DataGrip).
-2. Connect to your database server.
-3. Create the database `finchat` if it does not exist: `CREATE DATABASE finchat;`
-4. Open and execute the `data/table_design.sql` file to create the necessary tables (`customer_data`, `raw_transactions`, etc.).
-
-### Step 4: Generate Mock Bank Data
-Now we will generate realistic bank transactions and customer data locally. 
-
-Run the data generator script from inside the `data` directory:
-
+### 3. Data Initialization
+Initialize the database and generate synthetic banking data:
 ```bash
-cd data/
-python generate_bank_data.py
+# Create tables
+# Run SQL script: data/table_design.sql
+
+# Generate & Ingest data
+python data/generate_bank_data.py
+python data/ingestion_pipeline.py
 ```
-This will create two files in your `data/` directory: `customers.csv` (5,000 users) and `raw_transactions.csv` (80,000 transactions).
 
-### Step 5: Ingest Data into MySQL
-To mimic our production architecture, we push this generated CSV data into the MySQL database. 
-
-Ensure you are still in the `data/` directory and run:
+### 4. Run the Pipeline
+Train models and register them with MLflow:
 ```bash
-python ingestion_pipeline.py
+python pipeline/train_all_models.py
 ```
-*You should see logs indicating that connection to MySQL was successful and exactly 5,000 customers and 80,000 transactions were ingested.*
-
-### Step 6: Feature Engineering & Model Training
-With the data safely in MySQL, you are ready to engineer features and train your models!
-
-- **Feature Engineering**: The `pipeline/feature_engineering.py` connects to MySQL, rolls up transactional data, and outputs mathematically sound Machine Learning features (RFM, rolling windows, behavioral statistics).
-- **Survival Analysis**: Open your Jupyter Notebooks (e.g., `pipeline/model_experiment.ipynb`) to pull these engineered features down from SQL and train your predictive models!
 
 ---
-*If you encounter an error like `[Errno 11003] getaddrinfo failed`, ensure your `.env` variables do not have accidental spaces and that your MySQL server is currently running.*
+
+## 📅 Roadmap
+
+- [x] Phase 1: Synthetic Data Infrastructure
+- [x] Phase 2: Core Predictive ML Pipeline
+- [/] Phase 3: AI Agent & Integration (In Progress)
+- [ ] Phase 4: Streamlit Dashboard Deployment
+- [ ] Phase 5: Production Deployment on AWS
+
+---
+
+## 📄 License
+
+This project is licensed under the MIT License - see the [LICENSE](LICENSE) file for details.
+
+---
+*Created with ❤️ by the FinChat Analytics Team.*

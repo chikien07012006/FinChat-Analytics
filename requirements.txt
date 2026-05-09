@@ -23,6 +23,7 @@ lifetimes>=0.11.3                  # BG/NBD + Gamma-Gamma cho CLV
 lifelines>=0.29.0                  # Survival Analysis (CoxPH)
 scikit-learn>=1.5.1                # Churn Prediction, preprocessing
 # causalnex>=0.12.0                  # Causal Discovery (NOTEARS) - Incompatible with Python 3.12
+causal-learn>=0.1.3.8               # Causal Discovery alternative for Python 3.12
 torch>=2.4.0                       # Uplift model
 # pygam>=0.9.0                     
 
