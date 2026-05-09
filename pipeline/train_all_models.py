@@ -1,7 +1,6 @@
 import pandas as pd
 import numpy as np
 from pathlib import Path
-import logging
 from datetime import datetime
 from langchain_core.tools import Tool
 from lifetimes import BetaGeoFitter, GammaGammaFitter
@@ -12,6 +11,8 @@ from sklearn.metrics import roc_auc_score, classification_report
 from typing import List, Dict, Any
 from .feature_engineering import run_feature_engineering
 from pydantic.v1 import BaseModel
+from causallearn.search.FCMBased.lingam import DirectLiNGAM
+from sklearn.preprocessing import StandardScaler
 
 class TopKArgsSchema(BaseModel):
     k: int
@@ -61,10 +62,10 @@ def survival_analysis_top_k(k: int) -> List[Dict[str, Any]]:
     cph.fit(df[["duration", "churned"] + covariates], duration_col="duration", event_col="churned")
 
     expected_survival = cph.predict_expectation(df[covariates])
-    df["expected_survival"] = expected_survival
+    df["expected_survival"] = expected_survival # thời gian sống dự kiến từ khi bắt đầu tương tác
     df["days_remaining_to_churn"] = (
         df["expected_survival"] - df["duration"]
-    ).where(df["churned"] == 0, 0).clip(lower=0)
+    ).where(df["churned"] == 0, 0).clip(lower=0) # chỉ gán khi churned = 0, còn churned = 1 thì để 0
 
     # Customers with shortest days remaining are highest churn risk
     top_k = df[['customer_id', 'days_remaining_to_churn']].sort_values(
@@ -147,4 +148,73 @@ uplift_modeling_tool = Tool.from_function(
     description="Count how many customers have positive uplift if given a promotion.",
     func=uplift_modeling_positive,
     args_schema=BaseModel  # No args needed
+)
+
+# ---------- Discover potential causal factors for churn ----------
+def discover_churn_factors() -> Dict[str, Any]:
+    df = run_feature_engineering()
+    demographic_cols = ["age", "gender", "city", "segment_initial", "num_promotions"]
+    extra_cols = [col for col in df.columns if col.startswith((
+        "gender_", "education_level_", "marital_status_", 
+        "profession_", "customer_segment_"
+    ))]
+    
+    available_cols = [c for c in demographic_cols + extra_cols if c in df.columns]
+    cols_to_use = available_cols + ["churned"]
+
+    data = df[cols_to_use].copy()
+
+    # Encode Categorical / Ordinal features
+    if 'segment_initial' in data.columns:
+        segment_map = {'Mass': 0, 'Premium': 1, 'VIP': 2}
+        data['segment_initial'] = data['segment_initial'].map(segment_map).fillna(0)
+
+    if 'gender' in data.columns:
+        data['gender'] = data['gender'].map({'Male': 0, 'Female': 1}).fillna(-1)
+
+    if 'city' in data.columns:
+        data['city'] = pd.Categorical(data['city']).codes
+
+    data = data.apply(pd.to_numeric, errors='coerce').dropna()
+
+    if data.empty:
+        return {"churn_factors": []}
+
+    # Scaling
+    scaler = StandardScaler()
+    features = [c for c in data.columns if c != "churned"]
+    data_scaled = pd.DataFrame(scaler.fit_transform(data[features]), columns=features, index=data.index)
+    data_scaled["churned"] = data["churned"]
+    
+    # Structural Causal Discovery using DirectLiNGAM
+    model = DirectLiNGAM()
+    model.fit(data_scaled)
+    
+    adj = model.adjacency_matrix_
+    
+    try:
+        churned_idx = list(data_scaled.columns).index("churned")
+    except ValueError:
+        return {"churn_factors": []}
+
+    causal_factors = []
+    for j in range(len(features) + 1):
+        weight = adj[churned_idx, j]
+        if j != churned_idx and abs(weight) > 0.02:
+            feature_name = data_scaled.columns[j]
+            causal_factors.append({
+                "feature": feature_name,
+                "weight": round(float(weight), 4)
+            })
+
+    # Sort factors by absolute weight
+    causal_factors = sorted(causal_factors, key=lambda x: abs(x['weight']), reverse=True)
+    
+    return {"churn_factors": causal_factors}
+
+discover_churn_factors_tool = Tool.from_function(
+    name="discover_churn_factors",
+    description="Discover factors that may causally influence churn.",
+    func=discover_churn_factors,
+    args_schema=BaseModel  
 )
