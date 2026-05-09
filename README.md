@@ -107,11 +107,3 @@ python pipeline/train_all_models.py
 - [ ] Phase 4: Streamlit Dashboard Deployment
 - [ ] Phase 5: Production Deployment on AWS
 
----
-
-## 📄 License
-
-This project is licensed under the MIT License - see the [LICENSE](LICENSE) file for details.
-
----
-*Created with ❤️ by the FinChat Analytics Team.*
