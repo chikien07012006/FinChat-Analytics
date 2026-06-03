@@ -17,6 +17,27 @@ from sklearn.preprocessing import StandardScaler
 class TopKArgsSchema(BaseModel):
     k: int
 
+
+def _prepare_numeric_training_frame(df: pd.DataFrame, target_col: str) -> tuple[pd.DataFrame, pd.Series]:
+    feature_df = df.drop(columns=[target_col]).copy()
+
+    datetime_cols = feature_df.select_dtypes(include=['datetime64[ns]', 'datetime64[ns, UTC]']).columns
+    if len(datetime_cols) > 0:
+        feature_df = feature_df.drop(columns=list(datetime_cols))
+
+    for col in feature_df.columns:
+        if feature_df[col].dtype == 'object':
+            unique_ratio = feature_df[col].nunique(dropna=False) / max(len(feature_df), 1)
+            if col.endswith('_id') or unique_ratio > 0.5:
+                feature_df = feature_df.drop(columns=[col])
+            else:
+                feature_df[col] = feature_df[col].fillna('unknown')
+
+    feature_df = pd.get_dummies(feature_df, drop_first=False)
+    feature_df = feature_df.replace([np.inf, -np.inf], np.nan).fillna(0)
+
+    return feature_df, df[target_col]
+
 # ---------- Calculate CLV: Top K customers for upsell ----------
 def calculate_clv_top_k(k: int) -> List[Dict[str, Any]]:
     df = run_feature_engineering()
@@ -86,10 +107,9 @@ survival_analysis_tool = Tool.from_function(
 def churn_classification_top_k(k: int) -> List[Dict[str, Any]]:
     df = run_feature_engineering()
 
-    X = df.drop(columns=['churned'])
-    y = df['churned']
+    X, y = _prepare_numeric_training_frame(df, target_col='churned')
 
-    clf = RandomForestClassifier()
+    clf = RandomForestClassifier(random_state=42)
     clf.fit(X, y)
 
     churn_probs = clf.predict_proba(X)[:, 1]

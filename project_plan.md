@@ -68,9 +68,9 @@
 
 ## Phase 4: Backend Development – FastAPI + LangChain Agent (5–6 days)
 
-- [ ] Build FastAPI application (`backend/main.py`)
-- [ ] Create LangChain Agent with custom tools and proper routing
-- [ ] Develop 5 online inference tools (load model from MLflow + SQL query only):
+- [x] Build FastAPI application (`backend/main.py`)
+- [x] Create LangChain Agent with custom tools and proper routing
+- [x] Develop 5 online inference tools:
   - CLV Tool
   - Survival Analysis Tool
   - Churn Classification Tool
