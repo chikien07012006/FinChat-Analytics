@@ -5,7 +5,7 @@ gunicorn
 
 #Database & ORM
 sqlalchemy
-pymysql
+psycopg2-binary
 # alembic# Database migration
 
 #Data Processing

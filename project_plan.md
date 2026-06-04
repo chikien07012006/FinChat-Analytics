@@ -5,7 +5,7 @@
 
 **Project**: FinChat Analytics – AI-Powered Customer Retention Assistant  
 **Objective**: Build a standalone B2B web application with a natural language chatbot that helps banks, fintech startups, and SMEs analyze and predict customer behavior for RFM segmentation, Churn Prediction, CLV, Survival Analysis, Uplift Modeling, and Causal Discovery.  
-**Tech Stack**: Python, FastAPI, Streamlit, LangChain Agent, MLflow, MySQL, Plotly, Docker, AWS  
+**Tech Stack**: Python, FastAPI, Streamlit, LangChain Agent, MLflow, Supabase Postgres, Plotly, Docker, AWS  
 **Approach**: Offline Training Pipeline + Online Inference 
 
 **Total Estimated Duration**: 6–8 weeks 
@@ -36,9 +36,9 @@
 ## Phase 1: Data Preparation (2–3 days)
 
 - [x] Generate or import suitable sample banking data using `generate_bank_data.py`
-- [x] Design MySQL database schema (`raw_transactions`, `customer_data`, `customer_features`)
-- [x] Migrate data from SQLite to MySQL
-- [x] Build data ingestion pipeline (CSV → raw tables)
+- [x] Design Supabase Postgres schema (`raw_transactions`, `customer_data`, `customer_features`)
+- [x] Move mock data storage from local MySQL to Supabase Postgres
+- [x] Build one-time mock data seed pipeline (CSV → Supabase raw tables)
 - [x] Create data quality checks (missing values, outliers, duplicates)
 
 ---
@@ -125,7 +125,7 @@
 
 ## Phase 9: Deployment on AWS (4–5 days)
 
-- [ ] Deploy MySQL database using Amazon RDS
+- [ ] Use Supabase Postgres as the managed SQL database
 - [ ] Deploy MLflow server (EC2 or ECS + S3 + PostgreSQL)
 - [ ] Deploy FastAPI backend on ECS / Fargate
 - [ ] Deploy Streamlit frontend on ECS or a simple PaaS

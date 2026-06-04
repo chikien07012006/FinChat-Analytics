@@ -1,5 +1,9 @@
 .env
 data/*.csv
+customers.csv
+raw_transactions.csv
 *.pyc
 
 hieunv/
+
+SUPABSE_MIGRATION_

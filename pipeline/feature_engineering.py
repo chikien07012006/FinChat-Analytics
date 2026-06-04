@@ -3,8 +3,8 @@ import numpy as np
 from datetime import datetime
 from pathlib import Path
 from typing import Optional
-from sqlalchemy import create_engine, text
-from data.ingestion_pipeline import get_mysql_engine
+from sqlalchemy import text
+from data.ingestion_pipeline import get_db_engine
 
 class CustomerFeatureEngineer:
     def __init__(self, snapshot_date: Optional[datetime] = None):
@@ -14,7 +14,7 @@ class CustomerFeatureEngineer:
 
     def load_transactions(self, table) -> pd.DataFrame:
         """Load raw transaction data"""
-        engine = get_mysql_engine()
+        engine = get_db_engine()
         with engine.connect() as conn:
             df = pd.read_sql_query(text(f"""
             SELECT customer_id, tenant_id, transaction_date, amount 
@@ -135,7 +135,7 @@ class CustomerFeatureEngineer:
     def run_feature_engineering(self) -> pd.DataFrame:
         """Main feature engineering pipeline"""
         df = self.load_transactions(table='raw_transactions')
-        engine = get_mysql_engine()
+        engine = get_db_engine()
         with engine.connect() as conn:
             promo_df = pd.read_sql_query(text("""
                 SELECT customer_id, received_promotion, promotion_type, signup_date as transaction_date, churn,
