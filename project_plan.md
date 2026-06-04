@@ -76,7 +76,7 @@
   - Churn Classification Tool
   - Uplift Modeling Tool
   - Causal Discovery Tool
-- [ ] Add error handling, structured logging, and rate limiting
+- [x] Add error handling, structured logging, and rate limiting
 - [ ] Implement JWT + API key authentication
 - [ ] Define Pydantic request/response schemas
 
@@ -84,14 +84,14 @@
 
 ## Phase 5: Frontend Development – Streamlit (4–5 days)
 
-- [ ] Build the main Streamlit application (`frontend/app.py`):
+- [x] Build the main Streamlit application (`frontend/app.py`):
   - Natural language chat interface
   - Dashboard sidebar with key KPIs (churn rate, avg CLV, segment distribution)
   - Transaction data upload functionality
   - Interactive Plotly charts
   - Report export (HTML/PDF)
-- [ ] Add chat history and conversation saving
-- [ ] Implement dark/light mode and responsive design
+- [x] Add chat history and conversation saving
+- [x] Implement dark/light mode and responsive design
 
 ---
 

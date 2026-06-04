@@ -30,3 +30,16 @@ class HealthResponse(BaseModel):
     version: str
     database: str
     llm_configured: bool
+
+
+class KPIResponse(BaseModel):
+    churn_rate: float
+    avg_clv: float
+    total_customers: int
+    segment_distribution: Dict[str, int]
+
+
+class UploadResponse(BaseModel):
+    status: str
+    filename: str
+    rows_processed: int

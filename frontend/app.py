@@ -1,8 +1,14 @@
 from typing import Any, Dict, List
 
+import sys
+import os
+sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+
 import httpx
 import plotly.graph_objects as go
 import streamlit as st
+
+from frontend.components import load_custom_css, render_kpi_dashboard, render_upload_section, export_report_button
 
 
 DEFAULT_BACKEND_URL = "http://127.0.0.1:8000"
@@ -100,48 +106,60 @@ def submit_message(message: str) -> None:
 
 def sidebar() -> None:
     with st.sidebar:
-        st.markdown("## FinChat Tester")
-        st.caption("Simple frontend to test the backend chat flow.")
+        st.markdown("## FinChat Analytics")
+        st.caption("AI-Powered Customer Retention Platform")
+        st.divider()
 
-        st.session_state.backend_url = st.text_input(
-            "Backend URL",
-            value=st.session_state.backend_url,
-            help="Example: http://127.0.0.1:8000",
-        )
-        st.session_state.tenant_id = st.text_input(
-            "Tenant ID",
-            value=st.session_state.tenant_id,
-        )
+        render_kpi_dashboard(st.session_state.backend_url)
+        st.divider()
 
-        if st.button("Check /health", use_container_width=True):
-            try:
-                with httpx.Client(timeout=20.0) as client:
-                    response = client.get(f"{st.session_state.backend_url.rstrip('/')}/health")
-                    response.raise_for_status()
-                    st.success("Backend is reachable.")
-            except Exception as exc:
-                st.error(f"Health check failed: {exc}")
+        render_upload_section(st.session_state.backend_url)
+        st.divider()
 
-        if st.button("Clear chat", use_container_width=True):
-            st.session_state.messages = []
-            st.rerun()
+        export_report_button(st.session_state.messages)
+        st.divider()
 
-        st.markdown("### Prompt ideas")
-        for idx, prompt in enumerate(SUGGESTED_PROMPTS):
-            if st.button(prompt, key=f"prompt_{idx}", use_container_width=True):
-                submit_message(prompt)
+        with st.expander("Settings & Tools"):
+            st.session_state.backend_url = st.text_input(
+                "Backend URL",
+                value=st.session_state.backend_url,
+                help="Example: http://127.0.0.1:8000",
+            )
+            st.session_state.tenant_id = st.text_input(
+                "Tenant ID",
+                value=st.session_state.tenant_id,
+            )
+
+            if st.button("Check /health", use_container_width=True):
+                try:
+                    with httpx.Client(timeout=20.0) as client:
+                        response = client.get(f"{st.session_state.backend_url.rstrip('/')}/health")
+                        response.raise_for_status()
+                        st.success("Backend is reachable.")
+                except Exception as exc:
+                    st.error(f"Health check failed: {exc}")
+
+            if st.button("Clear chat", use_container_width=True):
+                st.session_state.messages = []
                 st.rerun()
+
+            st.markdown("### Prompt ideas")
+            for idx, prompt in enumerate(SUGGESTED_PROMPTS):
+                if st.button(prompt, key=f"prompt_{idx}", use_container_width=True):
+                    submit_message(prompt)
+                    st.rerun()
 
 
 def main() -> None:
+    load_custom_css()
     init_state()
     sidebar()
 
-    st.title("FinChat Analytics")
-    st.caption("Minimal Streamlit frontend for backend and agent testing.")
+    st.title("Data Insights Agent")
+    st.caption("Ask questions about churn, CLV, and campaign uplift.")
 
     if not st.session_state.messages:
-        st.info("Start by checking `/health` in the sidebar, then send a question to `/api/chat`.")
+        st.info("👋 Welcome! Use the sidebar to upload your latest transactions, or start asking questions below.")
 
     for message in st.session_state.messages:
         render_message(message)
