@@ -3,6 +3,10 @@ data/*.csv
 customers.csv
 raw_transactions.csv
 *.pyc
+__pycache__/
+mlruns/
+mlflow.db
+mlflow.db-*
 
 hieunv/
 

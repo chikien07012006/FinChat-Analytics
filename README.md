@@ -93,7 +93,12 @@ After this seed step, normal analytics and model runs read from Supabase directl
 ### 4. Run the Pipeline
 Train models and register them with MLflow:
 ```bash
-python pipeline/train_all_models.py
+python -m pipeline.train_all_models
+```
+
+Open the local MLflow UI:
+```bash
+mlflow ui --backend-store-uri sqlite:///mlflow.db --port 5000
 ```
 
 ---
