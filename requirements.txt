@@ -10,7 +10,8 @@ plotly>=5.24.0
 
 #Database & ORM
 sqlalchemy
-pymysql
+psycopg[binary]>=3.2.0
+supabase>=2.0.0
 # alembic# Database migration
 
 #Data Processing
@@ -23,6 +24,7 @@ langchain-google-genai>=2.1.5
 langchain-community>=0.3.0
 
 #ML Models (Customer Analytics)
+mlflow>=2.16.0
 lifetimes>=0.11.3                  # BG/NBD + Gamma-Gamma cho CLV
 lifelines>=0.29.0                  # Survival Analysis (CoxPH)
 scikit-learn>=1.5.1                # Churn Prediction, preprocessing

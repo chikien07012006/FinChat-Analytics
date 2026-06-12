@@ -13,27 +13,31 @@ class Settings(BaseSettings):
     environment: str = Field(default="development", alias="ENVIRONMENT")
     log_level: str = Field(default="INFO", alias="LOG_LEVEL")
 
-    db_host: str = Field(alias="DB_HOST")
-    db_port: int = Field(default=3306, alias="DB_PORT")
-    db_name: str = Field(alias="DB_NAME")
-    db_user: str = Field(alias="DB_USER")
-    db_password: str = Field(alias="DB_PASSWORD")
-    tenant_id: Optional[str] = Field(default=None, alias="TENANT_ID")
+    database_url: Optional[str] = Field(default=None, alias="DATABASE_URL")
+    tenant_id: str = Field(default="BANK001", alias="TENANT_ID")
+
+    supabase_url: Optional[str] = Field(default=None, alias="SUPABASE_URL")
+    supabase_anon_key: Optional[str] = Field(default=None, alias="SUPABASE_ANON_KEY")
+    supabase_jwt_secret: Optional[str] = Field(default=None, alias="SUPABASE_JWT_SECRET")
 
     gemini_api_key: Optional[str] = Field(default=None, alias="GEMINI_API_KEY")
     gemini_model: str = Field(default="gemini-3.5-flash", alias="GEMINI_MODEL")
     sql_result_limit: int = Field(default=100, alias="SQL_RESULT_LIMIT")
+    mlflow_tracking_uri: str = Field(default="mlruns", alias="MLFLOW_TRACKING_URI")
 
     @property
     def sqlalchemy_database_uri(self) -> str:
-        return (
-            f"mysql+pymysql://{self.db_user}:{self.db_password}"
-            f"@{self.db_host}:{self.db_port}/{self.db_name}"
-        )
+        if not self.database_url:
+            raise RuntimeError("DATABASE_URL is required. Use the Supabase Postgres SQLAlchemy URL.")
+        return self.database_url
 
     @property
     def llm_configured(self) -> bool:
         return bool(self.gemini_api_key)
+
+    @property
+    def supabase_auth_configured(self) -> bool:
+        return bool(self.supabase_url and self.supabase_anon_key)
 
 
 @lru_cache

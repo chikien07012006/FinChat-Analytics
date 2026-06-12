@@ -1,6 +1,7 @@
 import pandas as pd
 import numpy as np
 import json
+import tempfile
 from pathlib import Path
 from datetime import datetime
 from langchain_core.tools import Tool
@@ -10,10 +11,14 @@ from sklearn.ensemble import RandomForestClassifier, GradientBoostingClassifier
 from sklearn.model_selection import train_test_split
 from sklearn.metrics import roc_auc_score, classification_report
 from typing import List, Dict, Any
-from .feature_engineering import run_feature_engineering
 from pydantic.v1 import BaseModel
 from causallearn.search.FCMBased.lingam import DirectLiNGAM
 from sklearn.preprocessing import StandardScaler
+
+try:
+    from .feature_engineering import run_feature_engineering
+except ImportError:
+    from pipeline.feature_engineering import run_feature_engineering
 
 class TopKArgsSchema(BaseModel):
     k: int
@@ -49,6 +54,189 @@ def _prepare_numeric_training_frame(df: pd.DataFrame, target_col: str) -> tuple[
     feature_df = feature_df.replace([np.inf, -np.inf], np.nan).fillna(0)
 
     return feature_df, df[target_col]
+
+
+def train_and_log_all_models(experiment_name: str = "finchat-analytics") -> str:
+    import joblib
+    import mlflow
+    import mlflow.sklearn
+
+    from backend.config import get_settings
+
+    settings = get_settings()
+    mlflow.set_tracking_uri(settings.mlflow_tracking_uri)
+    mlflow.set_experiment(experiment_name)
+
+    df = run_feature_engineering()
+    run_name = f"finchat_training_{datetime.now().strftime('%Y%m%d_%H%M%S')}"
+
+    with mlflow.start_run(run_name=run_name) as run:
+        mlflow.log_params(
+            {
+                "tenant_id": settings.tenant_id,
+                "rows": int(len(df)),
+                "feature_columns": int(len(df.columns)),
+            }
+        )
+
+        _log_churn_model(df)
+        _log_clv_models(df)
+        _log_survival_model(df)
+        _log_uplift_models(df)
+        _log_causal_model(df)
+
+        return run.info.run_id
+
+
+def _log_churn_model(df: pd.DataFrame) -> None:
+    import mlflow
+    import mlflow.sklearn
+
+    X, y = _prepare_numeric_training_frame(df, target_col="churned")
+    clf = RandomForestClassifier(random_state=42)
+
+    if y.nunique() > 1 and len(df) >= 10:
+        X_train, X_test, y_train, y_test = train_test_split(
+            X,
+            y,
+            test_size=0.2,
+            random_state=42,
+            stratify=y,
+        )
+        clf.fit(X_train, y_train)
+        probs = clf.predict_proba(X_test)[:, 1]
+        mlflow.log_metric("churn_auc_roc", float(roc_auc_score(y_test, probs)))
+    else:
+        clf.fit(X, y)
+
+    mlflow.sklearn.log_model(
+        clf,
+        artifact_path="models/churn_classifier",
+        registered_model_name="finchat_churn_classifier",
+    )
+
+
+def _log_clv_models(df: pd.DataFrame) -> None:
+    import joblib
+    import mlflow
+
+    bgf = BetaGeoFitter(penalizer_coef=0.01)
+    ggf = GammaGammaFitter(penalizer_coef=0.01)
+    bgf.fit(df["frequency"], df["recency_months"], df["T_months"])
+    ggf.fit(df["frequency"], df["monetary_value"])
+    clv = ggf.customer_lifetime_value(
+        bgf,
+        df["frequency"],
+        df["recency_months"],
+        df["T_months"],
+        df["monetary_value"],
+        time=12,
+    )
+    mlflow.log_metric("avg_predicted_clv_12m", float(clv.mean()))
+
+    with tempfile.TemporaryDirectory() as tmp_dir:
+        bgf_path = Path(tmp_dir) / "bgf.joblib"
+        ggf_path = Path(tmp_dir) / "ggf.joblib"
+        joblib.dump(bgf, bgf_path)
+        joblib.dump(ggf, ggf_path)
+        mlflow.log_artifact(str(bgf_path), artifact_path="models/clv")
+        mlflow.log_artifact(str(ggf_path), artifact_path="models/clv")
+
+
+def _log_survival_model(df: pd.DataFrame) -> None:
+    import joblib
+    import mlflow
+
+    covariates = [
+        "recency_days",
+        "frequency",
+        "monetary_value",
+        "num_promotions",
+        "active_days",
+        "avg_days_between",
+    ]
+    cph = CoxPHFitter()
+    cph.fit(df[["duration", "churned"] + covariates], duration_col="duration", event_col="churned")
+    mlflow.log_metric("survival_concordance_index", float(cph.concordance_index_))
+
+    with tempfile.TemporaryDirectory() as tmp_dir:
+        model_path = Path(tmp_dir) / "coxph.joblib"
+        joblib.dump(cph, model_path)
+        mlflow.log_artifact(str(model_path), artifact_path="models/survival")
+
+
+def _log_uplift_models(df: pd.DataFrame) -> None:
+    import joblib
+    import mlflow
+
+    feature_columns = [
+        "recency_days", "frequency", "monetary_value", "T_months",
+        "recency_months", "recency_over_T", "freq_over_T", "freq_30d",
+        "monetary_30d", "freq_90d", "monetary_90d", "freq_180d",
+        "monetary_180d", "freq_ratio", "monetary_ratio", "avg_days_between",
+        "std_days_between", "avg_tx_value", "max_tx_value", "min_tx_value",
+        "transaction_count_total", "active_days", "active_days_ratio",
+        "num_promotions", "days_since_last_promotion",
+    ]
+    X = df[feature_columns]
+    T = df["received_promotion"]
+    y = df["conversion"]
+
+    if T.sum() == 0 or (len(T) - T.sum()) == 0:
+        mlflow.log_metric("uplift_positive_ratio", 0.0)
+        return
+
+    model_t = RandomForestClassifier(random_state=42)
+    model_c = RandomForestClassifier(random_state=42)
+    model_t.fit(X[T == 1], y[T == 1])
+    model_c.fit(X[T == 0], y[T == 0])
+
+    p_t = model_t.predict_proba(X)[:, 1]
+    p_c = model_c.predict_proba(X)[:, 1]
+    uplift = p_t - p_c
+    mlflow.log_metric("uplift_positive_ratio", float((uplift > 0).mean()))
+
+    with tempfile.TemporaryDirectory() as tmp_dir:
+        treated_path = Path(tmp_dir) / "uplift_treated.joblib"
+        control_path = Path(tmp_dir) / "uplift_control.joblib"
+        joblib.dump(model_t, treated_path)
+        joblib.dump(model_c, control_path)
+        mlflow.log_artifact(str(treated_path), artifact_path="models/uplift")
+        mlflow.log_artifact(str(control_path), artifact_path="models/uplift")
+
+
+def _log_causal_model(df: pd.DataFrame) -> None:
+    import joblib
+    import mlflow
+
+    data = df[["age", "gender", "city", "segment_initial", "num_promotions", "churned"]].copy()
+    data["segment_initial"] = data["segment_initial"].map({"Mass": 0, "Premium": 1, "VIP": 2}).fillna(0)
+    data["gender"] = data["gender"].map({"Male": 0, "Female": 1}).fillna(-1)
+    data["city"] = pd.Categorical(data["city"]).codes
+    data = data.apply(pd.to_numeric, errors="coerce").dropna()
+
+    if data.empty:
+        mlflow.log_metric("causal_factor_count", 0)
+        return
+
+    features = [c for c in data.columns if c != "churned"]
+    scaler = StandardScaler()
+    data_scaled = pd.DataFrame(scaler.fit_transform(data[features]), columns=features, index=data.index)
+    data_scaled["churned"] = data["churned"]
+
+    model = DirectLiNGAM()
+    model.fit(data_scaled)
+    churned_idx = list(data_scaled.columns).index("churned")
+    factor_count = int(sum(abs(model.adjacency_matrix_[churned_idx, j]) > 0.02 for j in range(len(features))))
+    mlflow.log_metric("causal_factor_count", factor_count)
+
+    with tempfile.TemporaryDirectory() as tmp_dir:
+        model_path = Path(tmp_dir) / "direct_lingam.joblib"
+        scaler_path = Path(tmp_dir) / "causal_scaler.joblib"
+        joblib.dump(model, model_path)
+        joblib.dump(scaler, scaler_path)
+        mlflow.log_artifact(str(model_path), artifact_path="models/causal")
+        mlflow.log_artifact(str(scaler_path), artifact_path="models/causal")
 
 # ---------- Calculate CLV: Top K customers for upsell ----------
 def calculate_clv_top_k(k: int) -> List[Dict[str, Any]]:
@@ -256,3 +444,8 @@ discover_churn_factors_tool = Tool.from_function(
     func=discover_churn_factors,
     args_schema=BaseModel  
 )
+
+
+if __name__ == "__main__":
+    run_id = train_and_log_all_models()
+    print(f"MLflow training completed. Run ID: {run_id}")

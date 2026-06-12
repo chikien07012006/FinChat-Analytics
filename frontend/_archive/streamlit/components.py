@@ -40,18 +40,23 @@ def load_custom_css():
     """, unsafe_allow_html=True)
 
 
-def fetch_kpis(backend_url: str):
+def _auth_headers(access_token: str | None):
+    return {"Authorization": f"Bearer {access_token}"} if access_token else {}
+
+
+def fetch_kpis(backend_url: str, access_token: str | None):
     try:
         with httpx.Client(timeout=10.0) as client:
-            res = client.get(f"{backend_url.rstrip('/')}/api/kpis")
+            res = client.get(f"{backend_url.rstrip('/')}/api/kpis", headers=_auth_headers(access_token))
             res.raise_for_status()
             return res.json()
     except Exception:
         return None
 
-def render_kpi_dashboard(backend_url: str):
+
+def render_kpi_dashboard(backend_url: str, access_token: str | None):
     st.markdown("### Executive Dashboard")
-    kpis = fetch_kpis(backend_url)
+    kpis = fetch_kpis(backend_url, access_token)
     
     if kpis:
         st.markdown(f'<div class="kpi-card"><div class="kpi-value">{(kpis["churn_rate"]*100):.1f}%</div><div class="kpi-label">Avg Churn Rate</div></div>', unsafe_allow_html=True)
@@ -65,7 +70,7 @@ def render_kpi_dashboard(backend_url: str):
         st.warning("Could not load KPIs from backend.")
 
 
-def render_upload_section(backend_url: str):
+def render_upload_section(backend_url: str, access_token: str | None):
     st.markdown("### Upload Transaction Data")
     uploaded_file = st.file_uploader("Upload CSV", type=["csv"])
     if uploaded_file is not None:
@@ -74,7 +79,11 @@ def render_upload_section(backend_url: str):
                 try:
                     files = {"file": (uploaded_file.name, uploaded_file.getvalue(), "text/csv")}
                     with httpx.Client(timeout=60.0) as client:
-                        res = client.post(f"{backend_url.rstrip('/')}/api/upload", files=files)
+                        res = client.post(
+                            f"{backend_url.rstrip('/')}/api/upload",
+                            files=files,
+                            headers=_auth_headers(access_token),
+                        )
                         res.raise_for_status()
                         result = res.json()
                         st.success(f"Processed {result.get('rows_processed', 0)} rows successfully!")

@@ -188,13 +188,13 @@ class GeminiService:
             raise RuntimeError("Gemini is not configured. Add GEMINI_API_KEY to .env before using Text2SQL.")
 
         tenant_hint = (
-            f"Prefer filtering by tenant_id = '{tenant_id}' when the table contains a tenant_id column."
+            f"Always filter by tenant_id = '{tenant_id}' for every table that has a tenant_id column."
             if tenant_id
             else "Do not assume a tenant filter unless the user explicitly asks for it."
         )
 
         system_prompt = (
-            "You are a careful SQL assistant for MySQL. "
+            "You are a careful SQL assistant for PostgreSQL. "
             "Return exactly one SQL statement. Use only SELECT or WITH queries. "
             "Never generate INSERT, UPDATE, DELETE, DROP, ALTER, CREATE, TRUNCATE, or multiple statements. "
             "Use only tables and columns present in the provided schema. "

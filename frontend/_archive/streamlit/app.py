@@ -8,6 +8,7 @@ import httpx
 import plotly.graph_objects as go
 import streamlit as st
 
+from frontend.auth import access_token, render_auth_gate
 from frontend.components import load_custom_css, render_kpi_dashboard, render_upload_section, export_report_button
 
 
@@ -37,9 +38,11 @@ def init_state() -> None:
 
 def call_backend(backend_url: str, message: str, tenant_id: str) -> Dict[str, Any]:
     payload = {"message": message, "tenant_id": tenant_id or None}
+    token = access_token()
+    headers = {"Authorization": f"Bearer {token}"} if token else {}
 
     with httpx.Client(timeout=120.0) as client:
-        response = client.post(f"{backend_url.rstrip('/')}/api/chat", json=payload)
+        response = client.post(f"{backend_url.rstrip('/')}/api/chat", json=payload, headers=headers)
         response.raise_for_status()
         return response.json()
 
@@ -120,10 +123,10 @@ def sidebar() -> None:
         st.caption("AI-Powered Customer Retention Platform")
         st.divider()
 
-        render_kpi_dashboard(st.session_state.backend_url)
+        render_kpi_dashboard(st.session_state.backend_url, access_token())
         st.divider()
 
-        render_upload_section(st.session_state.backend_url)
+        render_upload_section(st.session_state.backend_url, access_token())
         st.divider()
 
         export_report_button(st.session_state.messages)
@@ -135,10 +138,7 @@ def sidebar() -> None:
                 value=st.session_state.backend_url,
                 help="Example: http://127.0.0.1:8000",
             )
-            st.session_state.tenant_id = st.text_input(
-                "Tenant ID",
-                value=st.session_state.tenant_id,
-            )
+            st.caption("Tenant scope: BANK001")
 
             if st.button("Check /health", use_container_width=True):
                 try:
@@ -163,6 +163,8 @@ def sidebar() -> None:
 def main() -> None:
     load_custom_css()
     init_state()
+    if not render_auth_gate():
+        return
     sidebar()
 
     st.title("Data Insights Agent")

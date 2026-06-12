@@ -1,14 +1,18 @@
-from fastapi import FastAPI, HTTPException, UploadFile, File, Request
+from fastapi import Depends, FastAPI, HTTPException, UploadFile, File, Request
 from fastapi.responses import JSONResponse
-import random
 import logging
 import json
 import time
+from typing import Tuple
+
+import pandas as pd
+from sqlalchemy import text
 
 from backend.agent import AnalyticsAgent
+from backend.auth import AuthContext, get_current_user
 from backend.config import get_settings
 from backend.schemas import ChatRequest, ChatResponse, HealthResponse, KPIResponse, UploadResponse
-from data.ingestion_pipeline import get_mysql_engine
+from data.ingestion_pipeline import get_database_engine, ingest_dataframe_to_database
 
 # --- Structured Logging Setup ---
 class JsonFormatter(logging.Formatter):
@@ -55,7 +59,7 @@ async def global_exception_handler(request: Request, exc: Exception):
 def health_check() -> HealthResponse:
     database_status = "healthy"
     try:
-        engine = get_mysql_engine()
+        engine = get_database_engine()
         with engine.connect():
             pass
     except Exception:
@@ -71,10 +75,10 @@ def health_check() -> HealthResponse:
 
 
 @app.post("/api/chat", response_model=ChatResponse)
-def chat(request: ChatRequest) -> ChatResponse:
+def chat(request: ChatRequest, current_user: AuthContext = Depends(get_current_user)) -> ChatResponse:
     try:
-        logger.info(f"Processing chat request for tenant_id: {request.tenant_id}")
-        result = agent.handle(message=request.message, tenant_id=request.tenant_id or settings.tenant_id)
+        logger.info(f"Processing chat request for user_id: {current_user.user_id}")
+        result = agent.handle(message=request.message, tenant_id=current_user.tenant_id)
         return ChatResponse(**result)
     except Exception as exc:
         logger.error(f"Error in chat endpoint: {str(exc)}", exc_info=True)
@@ -82,26 +86,94 @@ def chat(request: ChatRequest) -> ChatResponse:
 
 
 @app.get("/api/kpis", response_model=KPIResponse)
-def get_kpis() -> KPIResponse:
-    # TODO: Replace with actual database queries to calculate real KPIs
+def get_kpis(current_user: AuthContext = Depends(get_current_user)) -> KPIResponse:
+    engine = get_database_engine()
+    with engine.connect() as conn:
+        totals = conn.execute(
+            text(
+                """
+                SELECT
+                    COUNT(*) AS total_customers,
+                    COALESCE(AVG(CASE WHEN churn THEN 1.0 ELSE 0.0 END), 0) AS churn_rate
+                FROM customer_data
+                WHERE tenant_id = :tenant_id
+                """
+            ),
+            {"tenant_id": current_user.tenant_id},
+        ).mappings().one()
+        avg_clv = conn.execute(
+            text(
+                """
+                SELECT COALESCE(AVG(clv_12m), 0) AS avg_clv
+                FROM customer_features
+                WHERE tenant_id = :tenant_id
+                """
+            ),
+            {"tenant_id": current_user.tenant_id},
+        ).scalar()
+        segments = conn.execute(
+            text(
+                """
+                SELECT COALESCE(segment_initial, 'Unknown') AS segment, COUNT(*) AS count
+                FROM customer_data
+                WHERE tenant_id = :tenant_id
+                GROUP BY COALESCE(segment_initial, 'Unknown')
+                ORDER BY count DESC
+                """
+            ),
+            {"tenant_id": current_user.tenant_id},
+        ).mappings().all()
+
     return KPIResponse(
-        churn_rate=random.uniform(0.1, 0.25),
-        avg_clv=random.uniform(1500, 3000),
-        total_customers=random.randint(5000, 10000),
-        segment_distribution={
-            "Champions": random.randint(1000, 2000),
-            "At Risk": random.randint(500, 1500),
-            "New Customers": random.randint(800, 1200),
-            "Hibernating": random.randint(2000, 4000)
-        }
+        churn_rate=float(totals["churn_rate"] or 0),
+        avg_clv=float(avg_clv or 0),
+        total_customers=int(totals["total_customers"] or 0),
+        segment_distribution={str(row["segment"]): int(row["count"]) for row in segments},
     )
 
 
 @app.post("/api/upload", response_model=UploadResponse)
-def upload_data(file: UploadFile = File(...)) -> UploadResponse:
-    # TODO: Implement actual data ingestion pipeline processing for the uploaded file
+def upload_data(
+    file: UploadFile = File(...),
+    current_user: AuthContext = Depends(get_current_user),
+) -> UploadResponse:
+    try:
+        df = pd.read_csv(file.file)
+        table_name, prepared = _prepare_upload_dataframe(df, current_user.tenant_id)
+        rows_processed = ingest_dataframe_to_database(prepared, table_name, if_exists="append")
+    except Exception as exc:
+        logger.error(f"Upload failed for {file.filename}: {str(exc)}", exc_info=True)
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
+
     return UploadResponse(
         status="success",
         filename=file.filename,
-        rows_processed=random.randint(100, 1000)
+        rows_processed=rows_processed,
     )
+
+
+def _prepare_upload_dataframe(df: pd.DataFrame, tenant_id: str) -> Tuple[str, pd.DataFrame]:
+    if df.empty:
+        raise ValueError("Uploaded CSV is empty.")
+
+    prepared = df.copy()
+    prepared["tenant_id"] = tenant_id
+
+    if "transaction_id" in prepared.columns:
+        required = {"transaction_id", "customer_id", "transaction_date", "amount"}
+        missing = required - set(prepared.columns)
+        if missing:
+            raise ValueError(f"Transaction upload is missing columns: {', '.join(sorted(missing))}")
+        return "raw_transactions", prepared
+
+    if "customer_id" in prepared.columns:
+        required = {"customer_id", "signup_date"}
+        missing = required - set(prepared.columns)
+        if missing:
+            raise ValueError(f"Customer upload is missing columns: {', '.join(sorted(missing))}")
+        for column in ["received_promotion", "churn"]:
+            if column in prepared.columns:
+                prepared[column] = prepared[column].astype(bool)
+        return "customer_data", prepared
+
+    raise ValueError("CSV must contain customer_id or transaction_id columns.")
