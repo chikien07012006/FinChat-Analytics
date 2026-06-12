@@ -1,7 +1,5 @@
 from typing import Any, Dict, List
 
-import plotly.graph_objects as go
-
 
 def build_ml_chart(tool_name: str, data: Any) -> List[Dict[str, Any]]:
     builders = {
@@ -19,60 +17,68 @@ def build_ml_chart(tool_name: str, data: Any) -> List[Dict[str, Any]]:
 
 
 def _build_clv_chart(data: List[Dict[str, Any]]) -> Dict[str, Any]:
-    fig = go.Figure(
-        data=[
-            go.Bar(
-                x=[item["customer_id"] for item in data],
-                y=[item["clv"] for item in data],
-                marker_color="#0f766e",
-            )
-        ]
-    )
-    fig.update_layout(title="Top Customers by CLV", xaxis_title="Customer", yaxis_title="CLV")
-    return {"chart_id": "clv_top_k", "title": "Top Customers by CLV", "figure": fig.to_plotly_json()}
+    return {
+        "chart_id": "clv_top_k",
+        "title": "Top Customers by CLV",
+        "figure": {
+            "data": [
+                {
+                    "type": "bar",
+                    "x": [str(item["customer_id"]) for item in data],
+                    "y": [float(item["clv"]) for item in data],
+                    "marker": {"color": "#0f766e"},
+                }
+            ],
+            "layout": {
+                "title": {"text": "Top Customers by CLV"},
+                "xaxis": {"title": {"text": "Customer"}},
+                "yaxis": {"title": {"text": "CLV"}},
+            },
+        },
+    }
 
 
 def _build_survival_chart(data: List[Dict[str, Any]]) -> Dict[str, Any]:
-    fig = go.Figure(
-        data=[
-            go.Bar(
-                x=[item["customer_id"] for item in data],
-                y=[item["days_remaining_to_churn"] for item in data],
-                marker_color="#b45309",
-            )
-        ]
-    )
-    fig.update_layout(
-        title="Estimated Days Remaining to Churn",
-        xaxis_title="Customer",
-        yaxis_title="Days Remaining",
-    )
     return {
         "chart_id": "survival_top_k",
         "title": "Estimated Days Remaining to Churn",
-        "figure": fig.to_plotly_json(),
+        "figure": {
+            "data": [
+                {
+                    "type": "bar",
+                    "x": [str(item["customer_id"]) for item in data],
+                    "y": [float(item["days_remaining_to_churn"]) for item in data],
+                    "marker": {"color": "#b45309"},
+                }
+            ],
+            "layout": {
+                "title": {"text": "Estimated Days Remaining to Churn"},
+                "xaxis": {"title": {"text": "Customer"}},
+                "yaxis": {"title": {"text": "Days Remaining"}},
+            },
+        },
     }
 
 
 def _build_churn_chart(data: List[Dict[str, Any]]) -> Dict[str, Any]:
-    fig = go.Figure(
-        data=[
-            go.Bar(
-                x=[item["customer_id"] for item in data],
-                y=[item["churn_probability"] for item in data],
-                marker_color="#b91c1c",
-            )
-        ]
-    )
-    fig.update_layout(
-        title="Top Customers by Churn Probability",
-        xaxis_title="Customer",
-        yaxis_title="Churn Probability",
-    )
     return {
         "chart_id": "churn_top_k",
         "title": "Top Customers by Churn Probability",
-        "figure": fig.to_plotly_json(),
+        "figure": {
+            "data": [
+                {
+                    "type": "bar",
+                    "x": [str(item["customer_id"]) for item in data],
+                    "y": [float(item["churn_probability"]) for item in data],
+                    "marker": {"color": "#b91c1c"},
+                }
+            ],
+            "layout": {
+                "title": {"text": "Top Customers by Churn Probability"},
+                "xaxis": {"title": {"text": "Customer"}},
+                "yaxis": {"title": {"text": "Churn Probability"}},
+            },
+        },
     }
 
 
@@ -80,38 +86,45 @@ def _build_uplift_chart(data: Dict[str, Any]) -> Dict[str, Any]:
     positive = int(data.get("num_customers_positive_uplift", 0))
     total = max(int(data.get("num_customers_scored", positive)), 1)
     non_positive = max(total - positive, 0)
-    fig = go.Figure(
-        data=[
-            go.Pie(
-                labels=["Positive uplift", "Non-positive uplift"],
-                values=[positive, non_positive],
-                marker=dict(colors=["#15803d", "#9ca3af"]),
-                hole=0.45,
-            )
-        ]
-    )
-    fig.update_layout(title="Promotion Uplift Distribution")
     return {
         "chart_id": "uplift_distribution",
         "title": "Promotion Uplift Distribution",
-        "figure": fig.to_plotly_json(),
+        "figure": {
+            "data": [
+                {
+                    "type": "pie",
+                    "labels": ["Positive uplift", "Non-positive uplift"],
+                    "values": [positive, non_positive],
+                    "marker": {"colors": ["#15803d", "#9ca3af"]},
+                    "hole": 0.45,
+                }
+            ],
+            "layout": {"title": {"text": "Promotion Uplift Distribution"}},
+        },
     }
 
 
 def _build_causal_chart(data: Dict[str, Any]) -> Dict[str, Any]:
     factors = data.get("churn_factors", [])
-    fig = go.Figure(
-        data=[
-            go.Bar(
-                x=[item["feature"] for item in factors],
-                y=[item["weight"] for item in factors],
-                marker_color="#4338ca",
-            )
-        ]
-    )
-    fig.update_layout(title="Potential Causal Drivers of Churn", xaxis_title="Feature", yaxis_title="Weight")
+    if not factors:
+        return {}
+
     return {
         "chart_id": "causal_factors",
         "title": "Potential Causal Drivers of Churn",
-        "figure": fig.to_plotly_json(),
+        "figure": {
+            "data": [
+                {
+                    "type": "bar",
+                    "x": [str(item["feature"]) for item in factors],
+                    "y": [float(item["weight"]) for item in factors],
+                    "marker": {"color": "#4338ca"},
+                }
+            ],
+            "layout": {
+                "title": {"text": "Potential Causal Drivers of Churn"},
+                "xaxis": {"title": {"text": "Feature"}},
+                "yaxis": {"title": {"text": "Weight"}},
+            },
+        },
     }

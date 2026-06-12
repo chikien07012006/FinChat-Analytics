@@ -97,8 +97,8 @@
 
 ## Phase 6: Integration & End-to-End Testing (3–4 days)
 
-- [ ] Connect Streamlit frontend with FastAPI backend
-- [ ] Test LangChain Agent multi-tool routing
+- [x] Connect Streamlit frontend with FastAPI backend
+- [x] Test LangChain Agent multi-tool routing
 - [ ] Write unit tests and integration tests (pytest)
 - [ ] Perform performance testing (target latency < 2 seconds for complex queries)
 - [ ] Test edge cases (empty data, Vietnamese/English queries, model failures)

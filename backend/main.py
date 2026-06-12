@@ -77,7 +77,7 @@ def chat(request: ChatRequest) -> ChatResponse:
         result = agent.handle(message=request.message, tenant_id=request.tenant_id or settings.tenant_id)
         return ChatResponse(**result)
     except Exception as exc:
-        logger.error(f"Error in chat endpoint: {str(exc)}")
+        logger.error(f"Error in chat endpoint: {str(exc)}", exc_info=True)
         raise HTTPException(status_code=400, detail=str(exc)) from exc
 
 

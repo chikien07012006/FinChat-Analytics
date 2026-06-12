@@ -5,7 +5,7 @@ import pandas as pd
 from sqlalchemy import inspect, text
 
 from backend.config import get_settings
-from backend.llm import OpenAIService
+from backend.llm import GeminiService
 from data.ingestion_pipeline import get_mysql_engine
 
 
@@ -19,7 +19,7 @@ FORBIDDEN_PATTERN = re.compile(
 class Text2SQLService:
     def __init__(self) -> None:
         self.settings = get_settings()
-        self.llm = OpenAIService()
+        self.llm = GeminiService()
         self.engine = get_mysql_engine()
 
     def query(self, question: str, tenant_id: Optional[str] = None) -> Dict[str, Any]:

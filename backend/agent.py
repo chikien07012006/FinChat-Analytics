@@ -3,7 +3,7 @@ from dataclasses import dataclass
 from typing import Any, Dict, Optional
 
 from backend.chart import build_ml_chart
-from backend.llm import OpenAIService
+from backend.llm import GeminiService
 from backend.tools.ml_tools import MLToolService
 from backend.tools.text2sql import Text2SQLService
 
@@ -54,7 +54,7 @@ class HybridRouter:
         "discover_churn_factors",
     }
 
-    def __init__(self, llm: OpenAIService) -> None:
+    def __init__(self, llm: GeminiService) -> None:
         self.llm = llm
         self.fallback_router = RuleBasedRouter()
 
@@ -63,6 +63,11 @@ class HybridRouter:
 
         if self._looks_like_smalltalk(message):
             return RouteDecision(route="chat", tool_name="chat")
+
+        # Keep deterministic routing for clearly-scoped analytics intents so
+        # the app still works when the LLM is slow or temporarily unavailable.
+        if fallback.route == "ml":
+            return fallback
 
         if not self.llm.available:
             return fallback
@@ -109,7 +114,7 @@ class HybridRouter:
 
 class AnalyticsAgent:
     def __init__(self) -> None:
-        self.llm = OpenAIService()
+        self.llm = GeminiService()
         self.router = HybridRouter(self.llm)
         self.ml_tools = MLToolService()
         self.text2sql = Text2SQLService()

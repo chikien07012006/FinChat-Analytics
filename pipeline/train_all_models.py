@@ -1,5 +1,6 @@
 import pandas as pd
 import numpy as np
+import json
 from pathlib import Path
 from datetime import datetime
 from langchain_core.tools import Tool
@@ -18,6 +19,16 @@ class TopKArgsSchema(BaseModel):
     k: int
 
 
+def _normalize_object_value(value: Any) -> Any:
+    if isinstance(value, list):
+        return json.dumps(value, ensure_ascii=False)
+    if isinstance(value, dict):
+        return json.dumps(value, ensure_ascii=False, sort_keys=True)
+    if isinstance(value, set):
+        return json.dumps(sorted(value), ensure_ascii=False)
+    return value
+
+
 def _prepare_numeric_training_frame(df: pd.DataFrame, target_col: str) -> tuple[pd.DataFrame, pd.Series]:
     feature_df = df.drop(columns=[target_col]).copy()
 
@@ -27,6 +38,7 @@ def _prepare_numeric_training_frame(df: pd.DataFrame, target_col: str) -> tuple[
 
     for col in feature_df.columns:
         if feature_df[col].dtype == 'object':
+            feature_df[col] = feature_df[col].map(_normalize_object_value)
             unique_ratio = feature_df[col].nunique(dropna=False) / max(len(feature_df), 1)
             if col.endswith('_id') or unique_ratio > 0.5:
                 feature_df = feature_df.drop(columns=[col])
@@ -146,7 +158,10 @@ def uplift_modeling_positive() -> Dict[str, Any]:
 
     # T-learner: Train separate models for treated and control groups
     if T.sum() == 0 or (len(T) - T.sum()) == 0:
-        return {"num_customers_positive_uplift": 0}
+        return {
+            "num_customers_positive_uplift": 0,
+            "num_customers_scored": int(len(df)),
+        }
 
     model_t = RandomForestClassifier(random_state=42)
     model_c = RandomForestClassifier(random_state=42)
@@ -161,7 +176,10 @@ def uplift_modeling_positive() -> Dict[str, Any]:
     df['uplift'] = p_t - p_c
     num_positive_uplift = (df['uplift'] > 0).sum()
 
-    return {"num_customers_positive_uplift": int(num_positive_uplift)}
+    return {
+        "num_customers_positive_uplift": int(num_positive_uplift),
+        "num_customers_scored": int(len(df)),
+    }
 
 uplift_modeling_tool = Tool.from_function(
     name="uplift_modeling_positive",

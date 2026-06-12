@@ -20,8 +20,8 @@ class Settings(BaseSettings):
     db_password: str = Field(alias="DB_PASSWORD")
     tenant_id: Optional[str] = Field(default=None, alias="TENANT_ID")
 
-    openai_api_key: Optional[str] = Field(default=None, alias="OPENAI_API_KEY")
-    openai_model: str = Field(default="gpt-5-nano", alias="OPENAI_MODEL")
+    gemini_api_key: Optional[str] = Field(default=None, alias="GEMINI_API_KEY")
+    gemini_model: str = Field(default="gemini-3.5-flash", alias="GEMINI_MODEL")
     sql_result_limit: int = Field(default=100, alias="SQL_RESULT_LIMIT")
 
     @property
@@ -33,7 +33,7 @@ class Settings(BaseSettings):
 
     @property
     def llm_configured(self) -> bool:
-        return bool(self.openai_api_key)
+        return bool(self.gemini_api_key)
 
 
 @lru_cache

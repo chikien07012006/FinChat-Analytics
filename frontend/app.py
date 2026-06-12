@@ -54,8 +54,8 @@ def render_plotly_charts(charts: List[Dict[str, Any]]) -> None:
         try:
             fig = go.Figure(figure_json)
             st.plotly_chart(fig, use_container_width=True)
-        except Exception:
-            st.warning("Unable to render one of the charts returned by the backend.")
+        except Exception as exc:
+            st.warning(f"Unable to render one of the charts returned by the backend. {exc}")
 
 
 def render_message(message: Dict[str, Any]) -> None:
@@ -87,10 +87,20 @@ def submit_message(message: str) -> None:
             }
         )
     except httpx.HTTPStatusError as exc:
+        detail = None
+        try:
+            detail = exc.response.json().get("detail")
+        except Exception:
+            detail = None
+
         st.session_state.messages.append(
             {
                 "role": "assistant",
-                "content": f"Backend returned an error: {exc.response.status_code}.",
+                "content": (
+                    f"Backend returned an error: {exc.response.status_code}. {detail}"
+                    if detail
+                    else f"Backend returned an error: {exc.response.status_code}."
+                ),
                 "response_payload": {"charts": []},
             }
         )
